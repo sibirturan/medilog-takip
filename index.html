@@ -8,8 +8,26 @@
     <meta name="theme-color" content="#ffffff">
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <title>MediLog App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              cyan: { 50: '#ecfeff', 100: '#cffafe', 500: '#06b6d4', 600: '#0891b2', 700: '#0e7490' },
+              slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Mobil Kaydırma Efektini Düzeltme */
+      body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+      input, button { outline: none; }
+    </style>
   </head>
-  <body class="bg-slate-50 overscroll-none">
+  <body class="bg-slate-50">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
