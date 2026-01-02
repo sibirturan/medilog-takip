@@ -1,47 +1,7 @@
-import { FileText, FileSpreadsheet } from 'lucide-react'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import { FileSpreadsheet } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
-export default function ExportButtons({ devices }) {
-  
-  const exportToPDF = () => {
-    const doc = new jsPDF()
-    
-    doc.setFontSize(24)
-    doc.setTextColor(59, 130, 246)
-    doc.text('MediLog', 14, 20)
-    
-    doc.setFontSize(16)
-    doc.setTextColor(0, 0, 0)
-    doc.text('Medical Device List', 14, 32)
-    
-    doc.setFontSize(10)
-    doc.setTextColor(100, 100, 100)
-    const now = new Date()
-    doc.text(`Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 14, 40)
-    doc.text(`Total Devices: ${devices.length}`, 14, 46)
-    
-    const tableData = devices.map(device => [
-      device.name || 'N/A',
-      device.serialNumber || 'N/A',
-      device.category || 'N/A',
-      device.location || 'N/A',
-      device.nextMaintenance || 'N/A',
-      device.status || 'Active'
-    ])
-    
-    doc.autoTable({
-      head: [['Device Name', 'Serial No.', 'Category', 'Location', 'Next Maintenance', 'Status']],
-      body: tableData,
-      startY: 52,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] }
-    })
-    
-    doc.save(`medilog-devices-${Date.now()}.pdf`)
-  }
+export default function ExportButton({ devices }) {
   
   const exportToExcel = () => {
     const excelData = devices.map(device => ({
@@ -70,26 +30,16 @@ export default function ExportButtons({ devices }) {
   }
   
   if (!devices || devices.length === 0) {
-    return <div className="text-gray-400 text-sm">No devices to export</div>
+    return null
   }
   
   return (
-    <div className="flex gap-3">
-      <button
-        onClick={exportToPDF}
-        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
-      >
-        <FileText size={18} />
-        <span>Export PDF</span>
-      </button>
-      
-      <button
-        onClick={exportToExcel}
-        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
-      >
-        <FileSpreadsheet size={18} />
-        <span>Export Excel</span>
-      </button>
-    </div>
+    <button
+      onClick={exportToExcel}
+      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm hover:shadow-md"
+    >
+      <FileSpreadsheet size={20} />
+      <span className="font-medium">Export to Excel</span>
+    </button>
   )
 }
