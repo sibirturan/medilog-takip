@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser'
+    minify: 'esbuild'  // ← terser yerine esbuild
   },
   server: {
     host: true,
