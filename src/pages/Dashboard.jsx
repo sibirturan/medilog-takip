@@ -4,6 +4,8 @@ import { db } from '../firebase'
 import { Plus, Search, Edit2, Trash2, AlertCircle } from 'lucide-react'
 import DeviceForm from '../components/DeviceForm'
 import ExportButton from '../components/ExportButton'
+import PrintButton from '../components/PrintButton'
+import ScanQRButton from '../components/ScanQRButton'
 
 export default function Dashboard() {
   const [devices, setDevices] = useState([])
@@ -51,6 +53,15 @@ export default function Dashboard() {
     setShowForm(false)
     setEditingDevice(null)
     fetchDevices()
+  }
+
+  const handleQRScan = (serialNumber) => {
+    const device = devices.find(d => d.serialNumber === serialNumber)
+    if (device) {
+      handleEdit(device)
+    } else {
+      alert(`Device with serial number ${serialNumber} not found!`)
+    }
   }
 
   const filteredDevices = devices.filter(device =>
@@ -102,7 +113,9 @@ export default function Dashboard() {
               />
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
+              <ScanQRButton onScanSuccess={handleQRScan} />
+              <PrintButton devices={filteredDevices} />
               <ExportButton devices={filteredDevices} />
               
               <button
