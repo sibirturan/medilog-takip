@@ -20,7 +20,8 @@
     "jspdf-autotable": "^3.8.2",
     "xlsx": "^0.18.5",
     "crypto-js": "^4.2.0",
-    "react-ga4": "^2.1.0"
+    "react-ga4": "^2.1.0",
+    "lucide-react": "^0.294.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
