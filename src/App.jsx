@@ -176,7 +176,7 @@ const AuthPage = () => {
             {error && <div className="text-rose-600 text-xs font-bold text-center bg-rose-50 p-3 rounded-lg">{error}</div>}
             <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl disabled:opacity-50 flex items-center justify-center gap-2">
               {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-              {isLogin ? 'Establish Session' : 'Register Account'}
+              {isLogin ? 'Sign In' : 'Register Account'}
             </button>
           </form>
           <div className="mt-8 text-center border-t pt-6">
