@@ -853,7 +853,6 @@ export default function App() {
   const handleSaveAsset = async (data) => {
     try {
       if (data.id) {
-        // Update existing
         await updateDoc(doc(db, `users/${user.uid}/assets`, data.id), {
           name: data.name,
           brand: data.brand,
@@ -864,7 +863,6 @@ export default function App() {
         });
         showToast('Device updated successfully');
       } else {
-        // Add new - FIX: Firestore auto-generates ID
         await addDoc(collection(db, `users/${user.uid}/assets`), {
           name: data.name,
           brand: data.brand,
@@ -898,7 +896,6 @@ export default function App() {
   };
 
   const handleSubscribe = async () => {
-    // TODO: Real payment integration (Stripe)
     if (!confirm(`Start ${PLAN.trialDays}-day free trial? (Demo mode)`)) return;
     try {
       const trialEnd = new Date();
@@ -945,7 +942,6 @@ export default function App() {
     [assets, searchQuery]
   );
 
-  // Loading screen
   if (loading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-white">
@@ -955,28 +951,20 @@ export default function App() {
     );
   }
 
-  // Landing page
   if (view === 'landing' && !user) {
     return <LandingPage onStart={() => setView('auth')} />;
   }
 
-  // Auth screen
   if (view === 'auth' && !user) {
     return <AuthScreen onBack={() => setView('landing')} />;
   }
 
   if (!user) return null;
 
-  // Main app
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
-      {/* Toast */}
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-      
-      {/* QR Scanner */}
       {isScannerOpen && <QRScanner onScan={handleScan} onClose={() => setIsScannerOpen(false)} />}
-      
-      {/* Asset Modal */}
       {isModalOpen && (
         <AssetModal 
           asset={modalAsset}
@@ -984,8 +972,6 @@ export default function App() {
           onSave={handleSaveAsset}
         />
       )}
-      
-      {/* Delete Confirm */}
       {deleteAsset && (
         <ConfirmModal
           title="Delete Device"
@@ -996,7 +982,6 @@ export default function App() {
         />
       )}
       
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-200 p-6 h-screen sticky top-0">
         <div className="flex items-center gap-2 text-cyan-600 font-black text-xl mb-10">
           <Stethoscope strokeWidth={3} /> MEDILOG
@@ -1048,9 +1033,7 @@ export default function App() {
         </button>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-4 md:p-6 lg:p-10 pb-24 lg:pb-10 overflow-y-auto min-h-screen">
-        {/* Mobile Header */}
         <div className="lg:hidden flex justify-between items-center mb-6">
           <div className="flex items-center gap-2 text-cyan-600 font-black text-xl">
             <Stethoscope strokeWidth={3} /> MEDILOG
@@ -1106,7 +1089,6 @@ export default function App() {
               </div>
             </header>
 
-            {/* Search */}
             <div className="mb-6 relative max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
               <input 
@@ -1126,7 +1108,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Asset Grid */}
             {assets.length === 0 ? (
               <div className="text-center py-16 md:py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
                 <Stethoscope className="text-slate-200 mx-auto mb-4" size={48} />
@@ -1158,36 +1139,29 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Bottom Nav */}
       <MobileBottomNav view={view} setView={setView} />
       
-      {/* Global Styles */}
       <style>{`
         @media print { 
           aside, nav, header, button, .max-w-md, [class*="fixed"] { display: none !important; } 
           .grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 1cm; } 
           main { padding: 0 !important; }
         }
-        
         .safe-area-inset { 
           padding-top: env(safe-area-inset-top); 
           padding-bottom: env(safe-area-inset-bottom); 
         }
-        
         .animate-slide-in {
           animation: slideIn 0.3s ease-out;
         }
-        
         @keyframes slideIn {
           from { transform: translateX(100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
-        
         html, body { 
           overscroll-behavior: none;
           -webkit-overflow-scrolling: touch;
         }
-        
         main::-webkit-scrollbar { width: 0; }
       `}</style>
     </div>
