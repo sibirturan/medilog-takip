@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Stethoscope, Printer, Plus, LogOut, Trash2, 
   Search, X, QrCode, AlertTriangle, CheckCircle2, Camera,
   Settings, CreditCard, Save, Calendar, AlertCircle
 } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -140,6 +141,41 @@ const BillingView = ({ currentPlan, onUpgrade, deviceCount }) => (
   </div>
 );
 
+// QR Scanner Component
+const QRScanner = ({ onScan, onClose }) => {
+  const scannerRef = useRef(null);
+
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner("qr-reader", { 
+      fps: 10, 
+      qrbox: { width: 250, height: 250 } 
+    });
+    
+    scanner.render(
+      (decodedText) => {
+        scanner.clear();
+        onScan(decodedText);
+      },
+      (error) => console.log(error)
+    );
+
+    return () => {
+      scanner.clear().catch(e => console.log(e));
+    };
+  }, [onScan]);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+        <div id="qr-reader"></div>
+      </div>
+      <button onClick={onClose} className="mt-6 text-white font-semibold px-6 py-3 bg-white/20 rounded-lg hover:bg-white/30">
+        Close Scanner
+      </button>
+    </div>
+  );
+};
+
 // Main App
 export default function App() {
   const [user, setUser] = useState(null);
@@ -148,6 +184,7 @@ export default function App() {
   const [clinicData, setClinicData] = useState(null);
   const [userPlan, setUserPlan] = useState('dental');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -240,6 +277,18 @@ export default function App() {
     if (!confirm('Change subscription plan?')) return;
     await setDoc(doc(db, `users/${user.uid}/settings/profile`), { plan: planId }, { merge: true });
     setUserPlan(planId);
+  };
+
+  const handleQRScan = (scannedText) => {
+    setIsScannerOpen(false);
+    // Extract asset ID from scanned text
+    const assetId = scannedText.split('/').pop();
+    const found = assets.find(a => a.id === assetId);
+    if (found) {
+      alert(`Device Found: ${found.name}`);
+    } else {
+      alert('Device not found in your inventory');
+    }
   };
 
   const filteredAssets = assets.filter(a => 
@@ -346,6 +395,8 @@ export default function App() {
   // Dashboard
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {isScannerOpen && <QRScanner onScan={handleQRScan} onClose={() => setIsScannerOpen(false)} />}
+      
       {/* Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r p-6 h-screen sticky top-0">
         <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl mb-8">
@@ -382,6 +433,7 @@ export default function App() {
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-3xl font-bold">Your Devices ({assets.length})</h1>
               <div className="flex gap-3">
+                <Button variant="outline" icon={Camera} onClick={() => setIsScannerOpen(true)}>Scan QR</Button>
                 <Button variant="outline" icon={Printer} onClick={() => window.print()}>Print QR Labels</Button>
                 <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>Add Device</Button>
               </div>
