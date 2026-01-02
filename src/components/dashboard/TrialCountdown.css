@@ -1,0 +1,94 @@
+/* src/components/dashboard/TrialCountdown.css */
+
+.trial-countdown {
+  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+  transition: all 0.3s;
+}
+
+.trial-countdown.urgent {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.countdown-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.icon {
+  font-size: 32px;
+}
+
+.text {
+  flex: 1;
+}
+
+.text strong {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+
+.text p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.upgrade-btn {
+  background: white;
+  color: #4ecdc4;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.urgent .upgrade-btn {
+  color: #ff6b6b;
+}
+
+.upgrade-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.progress-bar {
+  background: rgba(255,255,255,0.3);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: white;
+  height: 100%;
+  transition: width 0.3s;
+  border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .countdown-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .upgrade-btn {
+    width: 100%;
+  }
+}
