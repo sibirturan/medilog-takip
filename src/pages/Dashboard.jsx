@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { Plus, Search, Edit2, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, AlertCircle, FileSpreadsheet, Printer, QrCode } from 'lucide-react'
 import DeviceForm from '../components/DeviceForm'
-import ExportButton from '../components/ExportButton'
-import PrintButton from '../components/PrintButton'
-import ScanQRButton from '../components/ScanQRButton'
+import * as XLSX from 'xlsx'
 
 export default function Dashboard() {
   const [devices, setDevices] = useState([])
@@ -55,13 +53,79 @@ export default function Dashboard() {
     fetchDevices()
   }
 
-  const handleQRScan = (serialNumber) => {
-    const device = devices.find(d => d.serialNumber === serialNumber)
-    if (device) {
-      handleEdit(device)
-    } else {
-      alert(`Device with serial number ${serialNumber} not found!`)
+  const handleExport = () => {
+    if (filteredDevices.length === 0) {
+      alert('No devices to export!')
+      return
     }
+    const data = filteredDevices.map(d => ({
+      'Device Name': d.name || 'N/A',
+      'Serial Number': d.serialNumber || 'N/A',
+      'Category': d.category || 'N/A',
+      'Manufacturer': d.manufacturer || 'N/A',
+      'Model': d.model || 'N/A',
+      'Location': d.location || 'N/A',
+      'Purchase Date': d.purchaseDate || 'N/A',
+      'Last Maintenance': d.lastMaintenance || 'N/A',
+      'Next Maintenance': d.nextMaintenance || 'N/A'
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Devices')
+    XLSX.writeFile(wb, `medilog-${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const handlePrint = () => {
+    if (filteredDevices.length === 0) {
+      alert('No devices to print!')
+      return
+    }
+    const printWindow = window.open('', '_blank')
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Medical Devices Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #1e40af; color: white; padding: 12px; text-align: left; }
+            td { border: 1px solid #ddd; padding: 10px; }
+            tr:nth-child(even) { background: #f9fafb; }
+          </style>
+        </head>
+        <body>
+          <h1>Medical Devices Report</h1>
+          <p>Generated: ${new Date().toLocaleDateString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Device Name</th>
+                <th>Serial Number</th>
+                <th>Category</th>
+                <th>Location</th>
+                <th>Next Maintenance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredDevices.map(device => `
+                <tr>
+                  <td>${device.name || 'N/A'}</td>
+                  <td>${device.serialNumber || 'N/A'}</td>
+                  <td>${device.category || 'N/A'}</td>
+                  <td>${device.location || 'N/A'}</td>
+                  <td>${device.nextMaintenance || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `
+    printWindow.document.write(html)
+    printWindow.document.close()
+    setTimeout(() => printWindow.print(), 250)
   }
 
   const filteredDevices = devices.filter(device =>
@@ -93,13 +157,11 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Medical Device Management</h1>
           <p className="text-blue-200">Track and manage your medical equipment</p>
         </div>
 
-        {/* Controls */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-xl">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
             <div className="relative flex-1 w-full">
@@ -114,13 +176,25 @@ export default function Dashboard() {
             </div>
             
             <div className="flex gap-3 flex-wrap">
-              <ScanQRButton onScanSuccess={handleQRScan} />
-              <PrintButton devices={filteredDevices} />
-              <ExportButton devices={filteredDevices} />
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm"
+              >
+                <Printer size={20} />
+                <span className="font-medium">Print</span>
+              </button>
+
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm"
+              >
+                <FileSpreadsheet size={20} />
+                <span className="font-medium">Export Excel</span>
+              </button>
               
               <button
                 onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-lg"
               >
                 <Plus size={20} />
                 <span className="font-medium">Add Device</span>
@@ -129,7 +203,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Device Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredDevices.map((device) => {
             const maintenanceStatus = getMaintenanceStatus(device.nextMaintenance)
@@ -139,7 +212,6 @@ export default function Dashboard() {
                 key={device.id}
                 className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-xl hover:shadow-2xl transition-all border border-white/20 hover:border-blue-400"
               >
-                {/* Status Badge */}
                 {maintenanceStatus === 'overdue' && (
                   <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-red-500/20 border border-red-500 rounded-lg">
                     <AlertCircle size={16} className="text-red-400" />
@@ -153,7 +225,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Device Info */}
                 <h3 className="text-xl font-bold text-white mb-3">{device.name}</h3>
                 
                 <div className="space-y-2 mb-4">
@@ -184,7 +255,6 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t border-white/20">
                   <button
                     onClick={() => handleEdit(device)}
@@ -206,7 +276,6 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* Empty State */}
         {filteredDevices.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 text-lg">
@@ -215,7 +284,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Device Form Modal */}
         {showForm && (
           <DeviceForm
             device={editingDevice}
