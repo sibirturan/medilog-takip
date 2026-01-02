@@ -16,21 +16,20 @@ import {
   query, orderBy, getDoc, setDoc 
 } from 'firebase/firestore';
 
-// --- Firebase Konfigürasyonu ---
-// Vercel'e geçtiğinizde buradaki __firebase_config kısmını kendi Firebase verilerinizle değiştirmeyi unutmayın!
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_BUCKET",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+// --- Senin Gerçek Firebase Konfigürasyonun ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCU5rVA6j88gTtQEG5i3hshC3A3SBy5nu0",
+  authDomain: "medilog-d0de9.firebaseapp.com",
+  projectId: "medilog-d0de9",
+  storageBucket: "medilog-d0de9.firebasestorage.app",
+  messagingSenderId: "1030786694118",
+  appId: "1:1030786694118:web:6a23b10887dad87d963427"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'medilog-live-v1';
+const appId = 'medilog-live-v1';
 
 // --- Yardımcı Bileşenler ---
 const Card = ({ children, className = "" }) => (
@@ -63,7 +62,7 @@ const QRCodeImage = ({ data, size = 150 }) => {
   );
 };
 
-// --- QR Tarayıcı (jsQR Entegrasyonu) ---
+// --- QR Tarayıcı ---
 const QRScanner = ({ onScan, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -135,7 +134,7 @@ const QRScanner = ({ onScan, onClose }) => {
   );
 };
 
-// --- Auth Ekranı (Login & Signup) ---
+// --- Auth Ekranı ---
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -169,25 +168,25 @@ const AuthPage = () => {
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-slate-50 p-6 font-sans">
-      <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-500">
+      <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto shadow-xl shadow-blue-200 mb-6"><Stethoscope size={32} /></div>
+          <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto shadow-xl mb-6"><Stethoscope size={32} /></div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">MediLog</h1>
           <p className="text-slate-500 font-medium mt-2">Enterprise Medical Asset Hub</p>
         </div>
 
-        <Card className="p-10 border-none shadow-2xl shadow-slate-200">
+        <Card className="p-10 border-none shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-600 font-bold transition-all" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-bold" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secret Key</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-600 font-bold transition-all" />
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-600 font-bold" />
             </div>
             {error && <div className="text-rose-600 text-xs font-bold text-center bg-rose-50 p-3 rounded-lg">{error}</div>}
-            <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl disabled:opacity-50 flex items-center justify-center gap-2">
               {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
               {isLogin ? 'Establish Session' : 'Register Account'}
             </button>
@@ -217,12 +216,6 @@ export default function App() {
   const [clinicInfo, setClinicInfo] = useState({ name: "New Clinic", subscription: "free", trialStartDate: new Date().toISOString() });
 
   useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        try { await signInWithCustomToken(auth, __initial_auth_token); } catch(e) {}
-      }
-    };
-    initAuth();
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -284,7 +277,7 @@ export default function App() {
       <aside className="w-72 bg-white border-r border-slate-200 hidden lg:flex flex-col shrink-0">
         <div className="p-10">
           <div className="flex items-center gap-3 text-blue-600 mb-14 cursor-pointer" onClick={() => setView('dashboard')}>
-            <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-2xl shadow-blue-100"><Stethoscope size={26} /></div>
+            <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-2xl"><Stethoscope size={26} /></div>
             <span className="text-2xl font-black tracking-tighter uppercase">MEDILOG</span>
           </div>
           <nav className="space-y-2">
@@ -299,7 +292,7 @@ export default function App() {
                <Sparkles className="absolute -right-2 -top-2 text-indigo-200" size={60}/>
                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest relative z-10">Trial Phase</p>
                <h4 className="text-xl font-black text-indigo-900 relative z-10 mt-1">{trialDaysLeft()} Days Left</h4>
-               <button onClick={() => {setView('settings'); setSettingsTab('billing');}} className="mt-4 w-full py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-200 relative z-10">Unlock Pro</button>
+               <button onClick={() => {setView('settings'); setSettingsTab('billing');}} className="mt-4 w-full py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl relative z-10">Unlock Pro</button>
             </div>
           )}
         </div>
@@ -312,7 +305,7 @@ export default function App() {
               <Badge variant={clinicInfo.subscription === 'pro' ? 'premium' : 'default'}>{clinicInfo.subscription === 'pro' ? 'PRO' : 'FREE'}</Badge>
             </div>
           </div>
-          <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-black text-rose-600 hover:bg-rose-100 rounded-xl transition-all uppercase tracking-[0.2em]"><LogOut size={14} /> Terminate</button>
+          <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-black text-rose-600 hover:bg-rose-100 rounded-xl uppercase tracking-[0.2em] transition-all"><LogOut size={14} /> Terminate</button>
         </div>
       </aside>
 
@@ -320,17 +313,17 @@ export default function App() {
         <header className="bg-white border-b border-slate-200 h-20 flex items-center justify-between px-10 shrink-0">
           <div className="flex items-center gap-6">
             <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-300">{view}</h1>
-            <button onClick={() => setIsScannerOpen(true)} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 hover:scale-105 transition-all shadow-xl shadow-slate-200 active:scale-95"><QrCode size={16} /> SCAN QR</button>
+            <button onClick={() => setIsScannerOpen(true)} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 hover:scale-105 transition-all shadow-xl active:scale-95"><QrCode size={16} /> SCAN QR</button>
           </div>
           <div className="flex items-center gap-4">
              <div className="relative hidden xl:block"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-12 pr-6 py-3 bg-slate-100 border-none rounded-2xl text-xs w-64 focus:w-80 transition-all font-bold outline-none" /></div>
-             <button onClick={() => setIsAddModalOpen(true)} className="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black flex items-center gap-2 shadow-2xl shadow-blue-100 hover:bg-blue-700 transition-all"><Plus size={18} /> REGISTER</button>
+             <button onClick={() => setIsAddModalOpen(true)} className="bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black flex items-center gap-2 shadow-2xl hover:bg-blue-700 transition-all"><Plus size={18} /> REGISTER</button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-10">
           {view === 'dashboard' && (
-            <div className="space-y-10 max-w-7xl mx-auto animate-in fade-in duration-500">
+            <div className="space-y-10 max-w-7xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <StatCard icon={<Stethoscope/>} color="blue" label="Total Assets" value={assets.length} />
                 <StatCard icon={<CheckCircle2/>} color="emerald" label="Operational" value={assets.length} />
@@ -362,7 +355,7 @@ export default function App() {
           )}
 
           {view === 'reports' && (
-            <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500">
+            <div className="max-w-5xl mx-auto space-y-10">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  <Card className="p-10 border-l-8 border-l-blue-600"><Activity className="text-blue-600 mb-6" size={32}/><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinic Uptime</h3><p className="text-5xl font-black tracking-tighter">99.8%</p></Card>
                  <Card className="p-10 border-l-8 border-l-emerald-600"><DollarSign className="text-emerald-600 mb-6" size={32}/><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Value</h3><p className="text-5xl font-black tracking-tighter">${(assets.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)).toLocaleString()}</p></Card>
@@ -373,14 +366,14 @@ export default function App() {
           )}
 
           {view === 'settings' && (
-            <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500">
+            <div className="max-w-4xl mx-auto space-y-10">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                  <div className="space-y-2">
                    <SettingsTab active={settingsTab === 'profile'} onClick={() => setSettingsTab('profile')} icon={<User size={18}/>} label="Clinic Profile" />
                    <SettingsTab active={settingsTab === 'billing'} onClick={() => setSettingsTab('billing')} icon={<CreditCard size={18}/>} label="Licensing" />
                  </div>
                  <div className="md:col-span-2">
-                   {settingsTab === 'profile' && (<Card className="p-10"><form onSubmit={handleUpdateClinic} className="space-y-6"><h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Official Records</h3><FormItem label="Clinic Name" name="clinicName" defaultValue={clinicInfo.name} /><button type="submit" className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200 flex items-center gap-2"><Save size={16}/> Commit Updates</button></form></Card>)}
+                   {settingsTab === 'profile' && (<Card className="p-10"><form onSubmit={handleUpdateClinic} className="space-y-6"><h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Official Records</h3><FormItem label="Clinic Name" name="clinicName" defaultValue={clinicInfo.name} /><button type="submit" className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"><Save size={16}/> Commit Updates</button></form></Card>)}
                    {settingsTab === 'billing' && (<div className="space-y-8"><Card className={`p-10 relative overflow-hidden transition-all ${clinicInfo.subscription === 'pro' ? 'bg-indigo-600 text-white shadow-2xl' : 'bg-slate-100 text-slate-400'}`}><div className="relative z-10"><p className="text-[10px] font-black uppercase tracking-widest opacity-60">Status</p><h4 className="text-4xl font-black mt-2 tracking-tighter uppercase">{clinicInfo.subscription === 'pro' ? 'PRO LICENSE' : 'FREE TRIAL'}</h4>{clinicInfo.subscription === 'pro' ? (<div className="mt-6 flex items-center gap-2 text-xs font-bold bg-white/10 w-fit px-4 py-2 rounded-full backdrop-blur-sm"><CheckCircle2 size={16}/> CLOUD ACTIVE</div>) : (<div className="mt-4 space-y-4"><p className="text-indigo-900 font-bold text-sm">{trialDaysLeft()} days remaining.</p><button onClick={async () => { const up = { ...clinicInfo, subscription: 'pro' }; setClinicInfo(up); await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'clinicInfo'), up); }} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-indigo-700 transition-all">Upgrade to Pro ($49/mo)</button></div>)}</div><Zap className="absolute -right-6 -bottom-6 opacity-5" size={160}/></Card></div>)}
                  </div>
                </div>
@@ -388,7 +381,7 @@ export default function App() {
           )}
 
           {view === 'detail' && selectedAsset && (
-            <div className="max-w-6xl mx-auto space-y-10 animate-in zoom-in-95 duration-300">
+            <div className="max-w-6xl mx-auto space-y-10">
                <button onClick={() => setView('dashboard')} className="text-[10px] font-black text-blue-600 flex items-center gap-1 uppercase tracking-[0.2em] hover:underline"><ChevronRight size={14} className="rotate-180"/> Return to Hub</button>
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                  <div className="lg:col-span-2 space-y-10"><Card className="p-12 border-t-[12px] border-t-blue-600 rounded-[3rem] shadow-2xl"><div className="flex flex-col md:flex-row gap-12"><div className="w-48 h-48 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-slate-200 border border-slate-100 shadow-inner"><Stethoscope size={64} /></div><div className="flex-1 space-y-10"><div><Badge variant="success">ACTIVE CERTIFIED</Badge><h2 className="text-5xl font-black mt-4 leading-none tracking-tighter text-slate-800">{selectedAsset.name}</h2><p className="text-slate-400 font-black uppercase text-xs mt-3 tracking-[0.3em]">{selectedAsset.brand}</p></div><div className="grid grid-cols-2 gap-x-12 gap-y-8 pt-10 border-t border-slate-50"><DetailItem label="Technical Serial" value={selectedAsset.serial} /><DetailItem label="Next Inspection" value={selectedAsset.nextMaintenance} /></div></div></div></Card></div>
@@ -441,5 +434,5 @@ const DetailItem = ({ label, value }) => (
 );
 
 const Modal = ({ title, children, onClose }) => (
-  <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[100] flex items-center justify-center p-6"><Card className="w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 rounded-[3rem]"><div className="p-10 border-b flex items-center justify-between bg-slate-50/50"><h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">{title}</h3><button onClick={onClose} className="p-3 hover:bg-white rounded-full text-slate-300 transition-all"><X size={24}/></button></div><div className="p-12 bg-white">{children}</div></Card></div>
+  <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[100] flex items-center justify-center p-6"><Card className="w-full max-w-xl shadow-2xl overflow-hidden rounded-[3rem]"><div className="p-10 border-b flex items-center justify-between bg-slate-50/50"><h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">{title}</h3><button onClick={onClose} className="p-3 hover:bg-white rounded-full text-slate-300 transition-all"><X size={24}/></button></div><div className="p-12 bg-white">{children}</div></Card></div>
 );
