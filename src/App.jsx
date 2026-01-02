@@ -39,7 +39,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', icon: 
     ghost: "bg-transparent hover:bg-slate-100"
   };
   return (
-    <button type={type} disabled={disabled} onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50 ${styles[variant]} ${className}`}>
+    <button type={type} disabled={disabled} onClick={onClick} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50 ${styles[variant]} ${className}`}>
       {Icon && <Icon size={18} />}
       {children}
     </button>
@@ -63,7 +63,7 @@ const Alert = ({ variant = 'info', children }) => {
   return <div className={`p-4 border-2 rounded-lg ${styles[variant]}`}>{children}</div>;
 };
 
-// Settings View
+// Settings View (DÜZELTME 1: Form Etiketi ve Submit)
 const SettingsView = ({ user, clinicData }) => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -91,15 +91,15 @@ const SettingsView = ({ user, clinicData }) => {
     <div className="max-w-2xl">
       <h2 className="text-2xl font-bold mb-6">Clinic Settings</h2>
       <div className="bg-white p-6 rounded-xl border-2 border-slate-200">
-        <div onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4">
           <Input label="Clinic Name" name="clinicName" defaultValue={clinicData?.name || ''} required />
           <Input label="Phone" name="phone" defaultValue={clinicData?.phone || ''} />
           <Input label="Address" name="address" defaultValue={clinicData?.address || ''} />
           {msg && <Alert variant="success">{msg}</Alert>}
-          <Button type="button" onClick={handleSave} disabled={loading}>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Saving...' : 'Save Settings'}
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );
@@ -143,8 +143,6 @@ const BillingView = ({ currentPlan, onUpgrade, deviceCount }) => (
 
 // QR Scanner Component
 const QRScanner = ({ onScan, onClose }) => {
-  const scannerRef = useRef(null);
-
   useEffect(() => {
     const scanner = new Html5QrcodeScanner("qr-reader", { 
       fps: 10, 
@@ -187,6 +185,10 @@ export default function App() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  // DÜZELTME 3: Auth için State Kullanımı (getElementById yerine)
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
 
   // Auth listener
   useEffect(() => {
@@ -223,12 +225,12 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  const handleAuth = async (isRegister, email, password) => {
+  const handleAuth = async (isRegister) => {
     try {
       if (isRegister) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
       }
     } catch (err) {
       alert('Authentication error: ' + err.message);
@@ -258,7 +260,6 @@ export default function App() {
     try {
       await addDoc(collection(db, `users/${user.uid}/assets`), data);
       setIsAddModalOpen(false);
-      e.target.reset();
     } catch (err) {
       alert('Error adding device: ' + err.message);
     }
@@ -281,7 +282,6 @@ export default function App() {
 
   const handleQRScan = (scannedText) => {
     setIsScannerOpen(false);
-    // Extract asset ID from scanned text
     const assetId = scannedText.split('/').pop();
     const found = assets.find(a => a.id === assetId);
     if (found) {
@@ -361,28 +361,10 @@ export default function App() {
             <h2 className="text-2xl font-bold">Sign In to MediLog</h2>
           </div>
           <div className="space-y-4">
-            <Input label="Email" type="email" id="authEmail" placeholder="your@email.com" required />
-            <Input label="Password" type="password" id="authPassword" placeholder="••••••••" required />
-            <Button 
-              onClick={() => {
-                const email = document.getElementById('authEmail').value;
-                const password = document.getElementById('authPassword').value;
-                handleAuth(false, email, password);
-              }}
-              className="w-full"
-            >
-              Sign In
-            </Button>
-            <button 
-              onClick={() => {
-                const email = document.getElementById('authEmail').value;
-                const password = document.getElementById('authPassword').value;
-                if (email && password) handleAuth(true, email, password);
-              }}
-              className="w-full text-sm text-cyan-600 hover:underline"
-            >
-              Create Account
-            </button>
+            <Input label="Email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="your@email.com" required />
+            <Input label="Password" type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="••••••••" required />
+            <Button onClick={() => handleAuth(false)} className="w-full">Sign In</Button>
+            <button onClick={() => handleAuth(true)} className="w-full text-sm text-cyan-600 hover:underline">Create Account</button>
           </div>
           <button onClick={() => setView('landing')} className="w-full mt-4 text-sm text-slate-500">← Back to Home</button>
         </div>
@@ -514,12 +496,12 @@ export default function App() {
         )}
       </main>
 
-      {/* Add Device Modal */}
+      {/* Add Device Modal (DÜZELTME 2: Form Etiketi ve Submit) */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg">
             <h3 className="text-2xl font-bold mb-6">Add New Device</h3>
-            <div onSubmit={handleAddAsset} className="space-y-4">
+            <form onSubmit={handleAddAsset} className="space-y-4">
               <Input label="Device Name" name="deviceName" placeholder="e.g. X-Ray Machine" required />
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Brand" name="brand" placeholder="e.g. Philips" required />
@@ -530,9 +512,9 @@ export default function App() {
               <Input label="Warranty Expiry" name="warranty" type="date" />
               <div className="flex gap-4 mt-6">
                 <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="flex-1">Cancel</Button>
-                <Button type="button" onClick={handleAddAsset} className="flex-1">Add Device</Button>
+                <Button type="submit" className="flex-1">Add Device</Button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
