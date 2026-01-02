@@ -1,36 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Stethoscope, Printer, Plus, LogOut, Trash2, 
-  Camera, Settings, CreditCard, CheckCircle2
+  Search, X, QrCode, AlertTriangle, CheckCircle2, Camera,
+  Settings, CreditCard, Save, Calendar, AlertCircle
 } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
-// --- DEMO VERİ (Firebase yerine) ---
-const DEMO_USER = { uid: 'demo-user', email: 'demo@clinic.com' };
-const DEMO_CLINIC = { name: 'Demo Klinik', phone: '0555 123 45 67', address: 'İstanbul, Türkiye' };
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCU5rVA6j88gTtQEG5i3hshC3A3SBy5nu0",
+  authDomain: "medilog-d0de9.firebaseapp.com",
+  projectId: "medilog-d0de9",
+  storageBucket: "medilog-d0de9.firebasestorage.app",
+  messagingSenderId: "1030786694118",
+  appId: "1:1030786694118:web:6a23b10887dad87d963427"
+};
 
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Plans
 const PLANS = [
-  { id: 'vet', name: 'Veterinary', price: 39, features: ['15 Cihaz Limiti', 'Aşı Takibi'] },
-  { id: 'dental', name: 'Dental Clinic', price: 49, features: ['Sınırsız QR', 'Garanti Takibi'], recommended: true },
-  { id: 'growth', name: 'Growth Package', price: 89, features: ['Çoklu Lokasyon', 'SMS Uyarıları'] }
+  { id: 'vet', name: 'Veterinary', price: 39, devices: 15, features: ['Up to 15 devices', 'Vaccine tracking', 'Email reminders'] },
+  { id: 'dental', name: 'Dental Clinic', price: 49, devices: 20, features: ['Up to 20 devices', 'Unlimited QR labels', 'Warranty tracking'], recommended: true },
+  { id: 'growth', name: 'Growth Package', price: 89, devices: 50, features: ['Up to 50 devices', 'Multi-location', 'SMS alerts', 'Priority support'] }
 ];
 
-// --- UI BİLEŞENLERİ ---
+// UI Components
 const Button = ({ children, onClick, variant = 'primary', className = '', icon: Icon, type = "button", disabled }) => {
   const styles = {
-    primary: "bg-cyan-600 text-white hover:bg-cyan-700 shadow-lg shadow-cyan-200",
-    secondary: "bg-slate-800 text-white hover:bg-slate-900",
-    outline: "bg-white text-slate-600 border-2 border-slate-100 hover:border-cyan-200 hover:text-cyan-600",
-    danger: "bg-rose-50 text-rose-600 hover:bg-rose-100",
-    ghost: "bg-transparent"
+    primary: "bg-cyan-600 text-white hover:bg-cyan-700",
+    outline: "bg-white text-slate-700 border-2 border-slate-200 hover:border-cyan-500",
+    danger: "bg-rose-500 text-white hover:bg-rose-600",
+    ghost: "bg-transparent hover:bg-slate-100"
   };
-  
   return (
-    <button 
-      type={type} 
-      disabled={disabled} 
-      onClick={onClick} 
-      className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${styles[variant]} ${className}`}
-    >
+    <button type={type} disabled={disabled} onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50 ${styles[variant]} ${className}`}>
       {Icon && <Icon size={18} />}
       {children}
     </button>
@@ -39,382 +47,445 @@ const Button = ({ children, onClick, variant = 'primary', className = '', icon: 
 
 const Input = ({ label, ...props }) => (
   <div className="space-y-1">
-    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{label}</label>
-    <input 
-      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all" 
-      {...props} 
-    />
+    {label && <label className="text-xs font-bold text-slate-600 uppercase">{label}</label>}
+    <input className="w-full p-3 border-2 border-slate-200 rounded-lg focus:border-cyan-500 outline-none" {...props} />
   </div>
 );
 
-// --- ALT SAYFALAR ---
-const SettingsView = ({ clinicData, onSave }) => {
+// Alert Component
+const Alert = ({ variant = 'info', children }) => {
+  const styles = {
+    danger: 'bg-rose-50 border-rose-200 text-rose-700',
+    warning: 'bg-amber-50 border-amber-200 text-amber-700',
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-700'
+  };
+  return <div className={`p-4 border-2 rounded-lg ${styles[variant]}`}>{children}</div>;
+};
+
+// Settings View
+const SettingsView = ({ user, clinicData }) => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
 
   const handleSave = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const formData = new FormData(e.target);
     const data = {
-      name: formData.get('name'),
-      phone: formData.get('phone'),
-      address: formData.get('address')
+      name: e.target.clinicName.value,
+      phone: e.target.phone.value,
+      address: e.target.address.value,
+      updatedAt: serverTimestamp()
     };
-    
-    await onSave(data);
-    setMsg('Ayarlar kaydedildi!');
-    setTimeout(() => setMsg(''), 3000);
+    try {
+      await setDoc(doc(db, `users/${user.uid}/settings/profile`), data, { merge: true });
+      setMsg('Settings saved!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (err) { 
+      alert('Error: ' + err.message); 
+    }
     setLoading(false);
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-black text-slate-900 mb-8">Ayarlar</h2>
-      <form onSubmit={handleSave} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-        <div className="grid md:grid-cols-2 gap-4">
-          <Input label="Klinik Adı" name="name" defaultValue={clinicData?.name || ''} required />
-          <Input label="Telefon" name="phone" defaultValue={clinicData?.phone || ''} />
+    <div className="max-w-2xl">
+      <h2 className="text-2xl font-bold mb-6">Clinic Settings</h2>
+      <div className="bg-white p-6 rounded-xl border-2 border-slate-200">
+        <div onSubmit={handleSave} className="space-y-4">
+          <Input label="Clinic Name" name="clinicName" defaultValue={clinicData?.name || ''} required />
+          <Input label="Phone" name="phone" defaultValue={clinicData?.phone || ''} />
+          <Input label="Address" name="address" defaultValue={clinicData?.address || ''} />
+          {msg && <Alert variant="success">{msg}</Alert>}
+          <Button type="button" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Settings'}
+          </Button>
         </div>
-        <Input label="Adres" name="address" defaultValue={clinicData?.address || ''} />
-        {msg && <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold text-center">{msg}</div>}
-        <Button type="submit" disabled={loading}>{loading ? 'Kaydediliyor...' : 'Kaydet'}</Button>
-      </form>
+      </div>
     </div>
   );
 };
 
-const BillingView = ({ currentPlan, onUpgrade }) => (
-  <div className="max-w-6xl mx-auto">
-    <h2 className="text-3xl font-black text-slate-900 mb-8">Planlar</h2>
+// Billing View
+const BillingView = ({ currentPlan, onUpgrade, deviceCount }) => (
+  <div className="max-w-5xl">
+    <h2 className="text-2xl font-bold mb-6">Subscription Plans</h2>
     <div className="grid md:grid-cols-3 gap-6">
-      {PLANS.map((plan) => (
-        <div 
-          key={plan.id} 
-          className={`bg-white p-8 rounded-3xl border-2 ${plan.id === currentPlan ? 'border-cyan-500 ring-4 ring-cyan-50' : 'border-slate-100'} ${plan.recommended ? 'relative' : ''}`}
-        >
-          {plan.recommended && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-600 text-white text-xs font-black px-4 py-1 rounded-full">
-              ÖNERİLEN
-            </div>
-          )}
-          <h3 className="text-xl font-black">{plan.name}</h3>
-          <p className="text-3xl font-black my-4 text-slate-900">${plan.price}<span className="text-sm text-slate-400">/ay</span></p>
-          <ul className="space-y-2 mb-8">
+      {PLANS.map(plan => (
+        <div key={plan.id} className={`bg-white p-6 rounded-xl border-2 ${plan.id === currentPlan ? 'border-cyan-500' : 'border-slate-200'}`}>
+          {plan.recommended && <span className="bg-cyan-600 text-white text-xs px-3 py-1 rounded-full font-bold">RECOMMENDED</span>}
+          <h3 className="text-xl font-bold mt-2">{plan.name}</h3>
+          <p className="text-3xl font-bold my-3">${plan.price}<span className="text-sm text-slate-500">/month</span></p>
+          <ul className="space-y-2 mb-6">
             {plan.features.map((f, i) => (
-              <li key={i} className="text-sm font-bold text-slate-600 flex gap-2">
-                <CheckCircle2 size={16} className="text-cyan-500 flex-shrink-0" />
+              <li key={i} className="text-sm flex gap-2 items-start">
+                <CheckCircle2 size={16} className="text-cyan-500 mt-0.5" />
                 {f}
               </li>
             ))}
           </ul>
           <Button 
             onClick={() => onUpgrade(plan.id)} 
-            disabled={plan.id === currentPlan} 
+            disabled={plan.id === currentPlan}
             className="w-full"
           >
-            {plan.id === currentPlan ? 'Mevcut Plan' : 'Seç'}
+            {plan.id === currentPlan ? 'Current Plan' : 'Select Plan'}
           </Button>
         </div>
       ))}
     </div>
+    {deviceCount > 5 && (
+      <Alert variant="warning" className="mt-6">
+        <strong>Additional Devices:</strong> You have {deviceCount - 5} extra devices (${(deviceCount - 5) * 2.5}/month)
+      </Alert>
+    )}
   </div>
 );
 
-// --- ANA UYGULAMA ---
+// Main App
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('landing');
   const [assets, setAssets] = useState([]);
-  const [clinicData, setClinicData] = useState(DEMO_CLINIC);
+  const [clinicData, setClinicData] = useState(null);
   const [userPlan, setUserPlan] = useState('dental');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = (email, pass) => {
-    if (email && pass) {
-      setUser(DEMO_USER);
-      setView('dashboard');
+  // Auth listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        const docRef = doc(db, `users/${currentUser.uid}/settings/profile`);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setClinicData(snap.data());
+          if (snap.data().plan) setUserPlan(snap.data().plan);
+        }
+        setView('dashboard');
+      } else {
+        setUser(null);
+        setClinicData(null);
+        setAssets([]);
+        setView('landing');
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Assets listener
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, `users/${user.uid}/assets`), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAssets(data);
+    });
+    return () => unsub();
+  }, [user]);
+
+  const handleAuth = async (isRegister, email, password) => {
+    try {
+      if (isRegister) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      alert('Authentication error: ' + err.message);
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setAssets([]);
-    setView('landing');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleAddAsset = (e) => {
+  const handleAddAsset = async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const newAsset = {
-      id: Date.now().toString(),
-      name: formData.get('name'),
-      brand: formData.get('brand'),
-      serial: formData.get('serial'),
-      nextService: formData.get('nextService'),
-      status: 'good',
-      createdAt: new Date()
+    const data = {
+      name: e.target.deviceName.value,
+      brand: e.target.brand.value,
+      serial: e.target.serial.value,
+      location: e.target.location.value,
+      nextService: e.target.nextService.value,
+      warrantyExpiry: e.target.warranty.value,
+      status: 'active',
+      createdAt: serverTimestamp()
     };
-    setAssets([newAsset, ...assets]);
-    setIsAddModalOpen(false);
-  };
-
-  const handleDeleteAsset = (id) => {
-    if (confirm('Bu cihazı silmek istediğinizden emin misiniz?')) {
-      setAssets(assets.filter(a => a.id !== id));
+    try {
+      await addDoc(collection(db, `users/${user.uid}/assets`), data);
+      setIsAddModalOpen(false);
+      e.target.reset();
+    } catch (err) {
+      alert('Error adding device: ' + err.message);
     }
   };
 
-  const handleSaveSettings = async (data) => {
-    setClinicData(data);
-  };
-
-  const handleUpgrade = (planId) => {
-    if (confirm(`Planı ${PLANS.find(p => p.id === planId)?.name} olarak değiştirmek istiyor musunuz?`)) {
-      setUserPlan(planId);
+  const handleDeleteAsset = async (id) => {
+    if (!confirm('Delete this device?')) return;
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/assets`, id));
+    } catch (err) {
+      alert('Error: ' + err.message);
     }
   };
 
-  // --- LANDING PAGE ---
-  if (view === 'landing' && !user) {
+  const handleUpgrade = async (planId) => {
+    if (!confirm('Change subscription plan?')) return;
+    await setDoc(doc(db, `users/${user.uid}/settings/profile`), { plan: planId }, { merge: true });
+    setUserPlan(planId);
+  };
+
+  const filteredAssets = assets.filter(a => 
+    a.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    a.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getAlertStatus = (nextService) => {
+    if (!nextService) return 'ok';
+    const days = Math.floor((new Date(nextService) - new Date()) / (1000 * 60 * 60 * 24));
+    if (days < 0) return 'overdue';
+    if (days <= 7) return 'warning';
+    return 'ok';
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-white font-sans text-slate-900">
-        <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 text-cyan-600 font-black text-xl">
-            <Stethoscope /> MEDILOG
-          </div>
-          <button 
-            onClick={() => setView('auth')} 
-            className="font-bold text-slate-600 hover:text-cyan-600 transition-colors"
-          >
-            Giriş Yap
-          </button>
-        </nav>
-        
-        <header className="text-center py-24 px-6">
-          <h1 className="text-5xl md:text-6xl font-black text-slate-900 mb-6">
-            Klinik Yönetimi <br />
-            <span className="text-cyan-600">Basitleştirildi.</span>
-          </h1>
-          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-            Cihazlarınızı QR kod ile takip edin, bakım planlarını yönetin
-          </p>
-          <Button onClick={() => setView('auth')} className="px-10 py-5 text-lg">
-            Hemen Başla
-          </Button>
-        </header>
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Stethoscope className="animate-pulse text-cyan-600 mx-auto mb-2" size={48} />
+          <p className="font-semibold text-slate-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // --- AUTH PAGE ---
+  // Landing Page
+  if (view === 'landing' && !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-white">
+        <nav className="p-4 flex justify-between items-center max-w-6xl mx-auto">
+          <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl">
+            <Stethoscope /> MediLog
+          </div>
+          <Button variant="outline" onClick={() => setView('auth')}>Sign In</Button>
+        </nav>
+        <div className="max-w-4xl mx-auto px-6 py-20 text-center">
+          <h1 className="text-5xl font-black mb-4">Never Forget Equipment Maintenance Again</h1>
+          <p className="text-xl text-slate-600 mb-8">Track your clinic devices with QR codes. Get reminders. Stay compliant.</p>
+          <div className="flex gap-4 justify-center">
+            <Button onClick={() => setView('auth')} className="px-8 py-4 text-lg">Start Free Trial</Button>
+            <Button variant="outline" onClick={() => setView('pricing')} className="px-8 py-4 text-lg">View Pricing</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Pricing Page
+  if (view === 'pricing' && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-12 px-6">
+        <div className="max-w-5xl mx-auto">
+          <button onClick={() => setView('landing')} className="mb-6 text-slate-600 hover:text-cyan-600">← Back</button>
+          <h2 className="text-3xl font-bold text-center mb-12">Simple, Transparent Pricing</h2>
+          <BillingView currentPlan={null} onUpgrade={() => setView('auth')} deviceCount={0} />
+          <p className="text-center mt-8 text-sm text-slate-600">First 5 devices free, then $2.50/device/month</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth Page
   if (view === 'auth' && !user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white w-full max-w-md p-10 rounded-[2rem] shadow-xl">
-          <div className="flex items-center justify-center gap-2 text-cyan-600 font-black text-2xl mb-8">
-            <Stethoscope /> MEDILOG
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+          <div className="text-center mb-6">
+            <Stethoscope className="text-cyan-600 mx-auto mb-2" size={40} />
+            <h2 className="text-2xl font-bold">Sign In to MediLog</h2>
           </div>
-          <h2 className="text-2xl font-black text-center mb-6">Klinik Girişi</h2>
-          
-          <form 
-            onSubmit={(e) => { 
-              e.preventDefault(); 
-              handleLogin(e.target.email.value, e.target.pass.value); 
-            }} 
-            className="space-y-4"
-          >
-            <Input name="email" type="email" placeholder="Email" required />
-            <Input name="pass" type="password" placeholder="Şifre" required />
-            <Button type="submit" className="w-full">Giriş Yap</Button>
-          </form>
-          
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-500 mb-2">Demo için herhangi bir email/şifre girebilirsiniz</p>
-            <button 
-              onClick={() => setView('landing')} 
-              className="text-sm text-cyan-600 font-bold hover:underline"
+          <div className="space-y-4">
+            <Input label="Email" type="email" id="authEmail" placeholder="your@email.com" required />
+            <Input label="Password" type="password" id="authPassword" placeholder="••••••••" required />
+            <Button 
+              onClick={() => {
+                const email = document.getElementById('authEmail').value;
+                const password = document.getElementById('authPassword').value;
+                handleAuth(false, email, password);
+              }}
+              className="w-full"
             >
-              ← Ana Sayfaya Dön
+              Sign In
+            </Button>
+            <button 
+              onClick={() => {
+                const email = document.getElementById('authEmail').value;
+                const password = document.getElementById('authPassword').value;
+                if (email && password) handleAuth(true, email, password);
+              }}
+              className="w-full text-sm text-cyan-600 hover:underline"
+            >
+              Create Account
             </button>
           </div>
+          <button onClick={() => setView('landing')} className="w-full mt-4 text-sm text-slate-500">← Back to Home</button>
         </div>
       </div>
     );
   }
 
-  // --- DASHBOARD ---
   if (!user) return null;
 
+  // Dashboard
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
-      {/* SIDEBAR */}
-      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-200 p-6 h-screen sticky top-0">
-        <div className="flex items-center gap-2 text-cyan-600 font-black text-xl mb-10">
-          <Stethoscope /> MEDILOG
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* Sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 bg-white border-r p-6 h-screen sticky top-0">
+        <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl mb-8">
+          <Stethoscope /> MediLog
         </div>
-        
-        <div className="mb-8 p-4 bg-slate-50 rounded-xl">
-          <p className="text-[10px] font-black uppercase text-slate-400">Klinik</p>
-          <p className="font-bold truncate">{clinicData?.name || 'Klinik Adı Yok'}</p>
-          <p className="text-xs text-cyan-600 font-bold mt-1 uppercase">{userPlan} Plan</p>
+        <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+          <p className="text-xs text-slate-500 uppercase font-bold">Clinic</p>
+          <p className="font-bold truncate">{clinicData?.name || 'Your Clinic'}</p>
+          <p className="text-xs text-cyan-600 font-bold mt-1">{userPlan.toUpperCase()} PLAN</p>
         </div>
-
         <nav className="space-y-2 flex-1">
-          <Button 
-            variant="ghost" 
-            onClick={() => setView('dashboard')} 
-            className={`w-full justify-start ${view === 'dashboard' ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500 hover:bg-slate-50'}`} 
-            icon={LayoutDashboard}
-          >
+          <Button variant="ghost" onClick={() => setView('dashboard')} className={`w-full justify-start ${view === 'dashboard' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={LayoutDashboard}>
             Dashboard
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setView('settings')} 
-            className={`w-full justify-start ${view === 'settings' ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500 hover:bg-slate-50'}`} 
-            icon={Settings}
-          >
-            Ayarlar
+          <Button variant="ghost" onClick={() => setView('settings')} className={`w-full justify-start ${view === 'settings' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={Settings}>
+            Settings
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setView('billing')} 
-            className={`w-full justify-start ${view === 'billing' ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500 hover:bg-slate-50'}`} 
-            icon={CreditCard}
-          >
-            Planlar
+          <Button variant="ghost" onClick={() => setView('billing')} className={`w-full justify-start ${view === 'billing' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={CreditCard}>
+            Billing
           </Button>
         </nav>
-        
-        <button 
-          onClick={handleLogout} 
-          className="flex items-center gap-2 text-rose-500 font-bold p-4 hover:bg-rose-50 rounded-xl transition-all text-sm w-full"
-        >
-          <LogOut size={16} /> Çıkış Yap
+        <button onClick={handleLogout} className="flex items-center gap-2 text-rose-500 p-3 hover:bg-rose-50 rounded-lg">
+          <LogOut size={16} /> Sign Out
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
-        {view === 'settings' && (
-          <SettingsView clinicData={clinicData} onSave={handleSaveSettings} />
-        )}
-        
-        {view === 'billing' && (
-          <BillingView currentPlan={userPlan} onUpgrade={handleUpgrade} />
-        )}
+      {/* Main Content */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        {view === 'settings' && <SettingsView user={user} clinicData={clinicData} />}
+        {view === 'billing' && <BillingView currentPlan={userPlan} onUpgrade={handleUpgrade} deviceCount={assets.length} />}
         
         {view === 'dashboard' && (
-          <>
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
-              <h1 className="text-3xl font-black">Cihazlar ({assets.length})</h1>
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-3xl font-bold">Your Devices ({assets.length})</h1>
               <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  icon={Printer} 
-                  onClick={() => window.print()}
-                  className="hidden sm:flex"
-                >
-                  Yazdır
-                </Button>
-                <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
-                  Ekle
-                </Button>
+                <Button variant="outline" icon={Printer} onClick={() => window.print()}>Print QR Labels</Button>
+                <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>Add Device</Button>
               </div>
-            </header>
+            </div>
 
-            {assets.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                <Stethoscope size={48} className="mx-auto text-slate-300 mb-4" />
-                <h3 className="font-black text-slate-400 mb-2">Henüz Cihaz Yok</h3>
-                <p className="text-sm text-slate-500 mb-6">Yeni cihaz ekleyerek başlayın</p>
-                <Button onClick={() => setIsAddModalOpen(true)}>
-                  İlk Cihazı Ekle
-                </Button>
+            {/* Search */}
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+                <input 
+                  type="text"
+                  placeholder="Search devices..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg focus:border-cyan-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Alerts */}
+            {assets.some(a => getAlertStatus(a.nextService) === 'overdue') && (
+              <Alert variant="danger" className="mb-6">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={20} />
+                  <strong>Maintenance Overdue!</strong> {assets.filter(a => getAlertStatus(a.nextService) === 'overdue').length} device(s) need immediate attention.
+                </div>
+              </Alert>
+            )}
+
+            {/* Assets Grid */}
+            {filteredAssets.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-300">
+                <Stethoscope className="mx-auto text-slate-300 mb-4" size={64} />
+                <h3 className="text-xl font-bold text-slate-400 mb-2">No Devices Yet</h3>
+                <p className="text-slate-500 mb-6">Add your first device to get started</p>
+                <Button onClick={() => setIsAddModalOpen(true)}>Add Your First Device</Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assets.map(asset => (
-                  <div key={asset.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between mb-4">
-                      <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
-                        <Stethoscope size={20} />
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAssets.map(asset => {
+                  const status = getAlertStatus(asset.nextService);
+                  return (
+                    <div key={asset.id} className="bg-white p-6 rounded-xl border-2 border-slate-200 hover:shadow-lg transition-shadow">
+                      <div className="flex justify-between mb-4">
+                        <div className="p-2 bg-cyan-50 rounded-lg">
+                          <Stethoscope className="text-cyan-600" size={24} />
+                        </div>
+                        {status === 'overdue' && <span className="text-xs font-bold bg-rose-100 text-rose-600 px-2 py-1 rounded-full">OVERDUE</span>}
+                        {status === 'warning' && <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-1 rounded-full">DUE SOON</span>}
+                        {status === 'ok' && <span className="text-xs font-bold bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">ACTIVE</span>}
                       </div>
-                      <span className="text-xs font-bold bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full">
-                        AKTİF
-                      </span>
+                      <h3 className="text-lg font-bold mb-1">{asset.name}</h3>
+                      <p className="text-sm text-slate-500 mb-4">{asset.brand} • {asset.serial}</p>
+                      <div className="text-sm space-y-1 mb-4">
+                        <p><strong>Location:</strong> {asset.location}</p>
+                        <p><strong>Next Service:</strong> {asset.nextService || 'Not set'}</p>
+                        {asset.warrantyExpiry && <p><strong>Warranty:</strong> {asset.warrantyExpiry}</p>}
+                      </div>
+                      <div className="flex justify-center p-4 bg-slate-50 rounded-lg mb-4">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://medilog.app/asset/${asset.id}`)}`}
+                          alt="QR Code"
+                          className="w-32 h-32"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteAsset(asset.id)}
+                        className="text-rose-500 hover:text-rose-600 text-sm font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 size={14} /> Delete Device
+                      </button>
                     </div>
-                    
-                    <h3 className="font-black text-lg mb-1">{asset.name}</h3>
-                    <p className="text-xs text-slate-400 font-bold uppercase mb-4">{asset.brand}</p>
-                    
-                    <div className="space-y-2 text-sm mb-4">
-                      <p className="text-slate-600">
-                        <span className="font-bold">Seri:</span> {asset.serial}
-                      </p>
-                      <p className="text-slate-600">
-                        <span className="font-bold">Bakım:</span> {asset.nextService}
-                      </p>
-                    </div>
-                    
-                    <div className="flex justify-center p-4 bg-slate-50 rounded-xl mb-4">
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`MEDILOG-${asset.id}`)}`}
-                        alt="QR Code"
-                        className="w-24 h-24"
-                      />
-                    </div>
-                    
-                    <button 
-                      onClick={() => handleDeleteAsset(asset.id)} 
-                      className="text-rose-500 hover:text-rose-600 font-bold text-xs flex items-center gap-1 transition-colors"
-                    >
-                      <Trash2 size={14} /> SİL
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
 
-      {/* ADD MODAL */}
+      {/* Add Device Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl">
-            <h3 className="text-2xl font-black mb-6">Yeni Cihaz Ekle</h3>
-            <form onSubmit={handleAddAsset} className="space-y-4">
-              <Input name="name" label="Cihaz Adı" placeholder="Örn: Ultrason Cihazı" required />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-lg">
+            <h3 className="text-2xl font-bold mb-6">Add New Device</h3>
+            <div onSubmit={handleAddAsset} className="space-y-4">
+              <Input label="Device Name" name="deviceName" placeholder="e.g. X-Ray Machine" required />
               <div className="grid grid-cols-2 gap-4">
-                <Input name="brand" label="Marka" placeholder="Örn: Philips" required />
-                <Input name="serial" label="Seri No" placeholder="ABC123" required />
+                <Input label="Brand" name="brand" placeholder="e.g. Philips" required />
+                <Input label="Serial Number" name="serial" placeholder="ABC123" required />
               </div>
-              <Input name="nextService" type="date" label="Sonraki Bakım" required />
+              <Input label="Location" name="location" placeholder="e.g. Room 101" required />
+              <Input label="Next Service Date" name="nextService" type="date" required />
+              <Input label="Warranty Expiry" name="warranty" type="date" />
               <div className="flex gap-4 mt-6">
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => setIsAddModalOpen(false)}
-                  type="button"
-                >
-                  İptal
-                </Button>
-                <Button type="submit" className="w-full">Kaydet</Button>
+                <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="flex-1">Cancel</Button>
+                <Button type="button" onClick={handleAddAsset} className="flex-1">Add Device</Button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
-      
-      <style>{`
-        @media print { 
-          aside, header button, nav { display: none !important; } 
-          .grid { display: grid !important; grid-template-columns: 1fr 1fr !important; }
-          body { background: white !important; }
-        }
-      `}</style>
+
+      <style>{`@media print { aside, button, input { display: none !important; } }`}</style>
     </div>
   );
 }
