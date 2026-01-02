@@ -4,6 +4,11 @@ import * as XLSX from 'xlsx'
 export default function ExportButton({ devices }) {
   
   const exportToExcel = () => {
+    if (!devices || devices.length === 0) {
+      alert('No devices to export!')
+      return
+    }
+
     const excelData = devices.map(device => ({
       'Device Name': device.name || 'N/A',
       'Serial Number': device.serialNumber || 'N/A',
@@ -26,20 +31,19 @@ export default function ExportButton({ devices }) {
     
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Devices')
-    XLSX.writeFile(wb, `medilog-devices-${Date.now()}.xlsx`)
-  }
-  
-  if (!devices || devices.length === 0) {
-    return null
+    
+    const fileName = `medilog-devices-${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(wb, fileName)
   }
   
   return (
     <button
       onClick={exportToExcel}
-      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm hover:shadow-md"
+      disabled={!devices || devices.length === 0}
+      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <FileSpreadsheet size={20} />
-      <span className="font-medium">Export to Excel</span>
+      <span className="font-medium">Export Excel</span>
     </button>
   )
 }
