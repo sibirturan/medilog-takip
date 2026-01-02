@@ -4,7 +4,8 @@ import {
   Search, X, QrCode, AlertTriangle, CheckCircle2, Camera,
   Settings, CreditCard, Save, Calendar, AlertCircle
 } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+// DİKKAT: Scanner yerine core kütüphaneyi çağırıyoruz
+import { Html5Qrcode } from 'html5-qrcode'; 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -53,7 +54,6 @@ const Input = ({ label, ...props }) => (
   </div>
 );
 
-// Alert Component
 const Alert = ({ variant = 'info', children }) => {
   const styles = {
     danger: 'bg-rose-50 border-rose-200 text-rose-700',
@@ -63,7 +63,72 @@ const Alert = ({ variant = 'info', children }) => {
   return <div className={`p-4 border-2 rounded-lg ${styles[variant]}`}>{children}</div>;
 };
 
-// Settings View (DÜZELTME 1: Form Etiketi ve Submit)
+// --- GÜNCELLENEN QR SCANNER (MOBİL UYUMLU) ---
+const QRScanner = ({ onScan, onClose }) => {
+  useEffect(() => {
+    const html5QrCode = new Html5Qrcode("reader");
+    
+    const startScanner = async () => {
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" }, // Arka kamerayı zorla
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+          },
+          (decodedText) => {
+            // Başarılı okuma
+            html5QrCode.stop().then(() => {
+              onScan(decodedText);
+            });
+          },
+          (errorMessage) => {
+            // Okuma hatası (görmezden gelinebilir, sürekli tetiklenir)
+          }
+        );
+      } catch (err) {
+        console.error("Kamera hatası:", err);
+        alert("Kamera başlatılamadı. İzinleri kontrol edin.");
+      }
+    };
+
+    startScanner();
+
+    // Temizlik
+    return () => {
+      if (html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => console.error(err));
+      }
+    };
+  }, [onScan]);
+
+  return (
+    <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center">
+      <div className="relative w-full max-w-md aspect-square bg-black overflow-hidden">
+        <div id="reader" className="w-full h-full"></div>
+        {/* Görsel Çerçeve */}
+        <div className="absolute inset-0 border-[50px] border-black/50 pointer-events-none">
+          <div className="w-full h-full border-2 border-cyan-500 animate-pulse relative">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-cyan-500"></div>
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-cyan-500"></div>
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-cyan-500"></div>
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-cyan-500"></div>
+          </div>
+        </div>
+      </div>
+      <p className="text-white mt-8 font-bold animate-pulse">QR Kodu Çerçeveye Tutun</p>
+      <button 
+        onClick={onClose} 
+        className="absolute top-8 right-8 bg-white/10 text-white p-3 rounded-full hover:bg-white/20 backdrop-blur-md"
+      >
+        <X size={24} />
+      </button>
+    </div>
+  );
+};
+
+// Settings View
 const SettingsView = ({ user, clinicData }) => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -81,9 +146,7 @@ const SettingsView = ({ user, clinicData }) => {
       await setDoc(doc(db, `users/${user.uid}/settings/profile`), data, { merge: true });
       setMsg('Settings saved!');
       setTimeout(() => setMsg(''), 3000);
-    } catch (err) { 
-      alert('Error: ' + err.message); 
-    }
+    } catch (err) { alert('Error: ' + err.message); }
     setLoading(false);
   };
 
@@ -96,9 +159,7 @@ const SettingsView = ({ user, clinicData }) => {
           <Input label="Phone" name="phone" defaultValue={clinicData?.phone || ''} />
           <Input label="Address" name="address" defaultValue={clinicData?.address || ''} />
           {msg && <Alert variant="success">{msg}</Alert>}
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Settings'}
-          </Button>
+          <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Settings'}</Button>
         </form>
       </div>
     </div>
@@ -117,62 +178,17 @@ const BillingView = ({ currentPlan, onUpgrade, deviceCount }) => (
           <p className="text-3xl font-bold my-3">${plan.price}<span className="text-sm text-slate-500">/month</span></p>
           <ul className="space-y-2 mb-6">
             {plan.features.map((f, i) => (
-              <li key={i} className="text-sm flex gap-2 items-start">
-                <CheckCircle2 size={16} className="text-cyan-500 mt-0.5" />
-                {f}
-              </li>
+              <li key={i} className="text-sm flex gap-2 items-start"><CheckCircle2 size={16} className="text-cyan-500 mt-0.5" />{f}</li>
             ))}
           </ul>
-          <Button 
-            onClick={() => onUpgrade(plan.id)} 
-            disabled={plan.id === currentPlan}
-            className="w-full"
-          >
+          <Button onClick={() => onUpgrade(plan.id)} disabled={plan.id === currentPlan} className="w-full">
             {plan.id === currentPlan ? 'Current Plan' : 'Select Plan'}
           </Button>
         </div>
       ))}
     </div>
-    {deviceCount > 5 && (
-      <Alert variant="warning" className="mt-6">
-        <strong>Additional Devices:</strong> You have {deviceCount - 5} extra devices (${(deviceCount - 5) * 2.5}/month)
-      </Alert>
-    )}
   </div>
 );
-
-// QR Scanner Component
-const QRScanner = ({ onScan, onClose }) => {
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner("qr-reader", { 
-      fps: 10, 
-      qrbox: { width: 250, height: 250 } 
-    });
-    
-    scanner.render(
-      (decodedText) => {
-        scanner.clear();
-        onScan(decodedText);
-      },
-      (error) => console.log(error)
-    );
-
-    return () => {
-      scanner.clear().catch(e => console.log(e));
-    };
-  }, [onScan]);
-
-  return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-        <div id="qr-reader"></div>
-      </div>
-      <button onClick={onClose} className="mt-6 text-white font-semibold px-6 py-3 bg-white/20 rounded-lg hover:bg-white/30">
-        Close Scanner
-      </button>
-    </div>
-  );
-};
 
 // Main App
 export default function App() {
@@ -186,11 +202,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   
-  // DÜZELTME 3: Auth için State Kullanımı (getElementById yerine)
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
 
-  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setLoading(true);
@@ -214,7 +228,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Assets listener
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, `users/${user.uid}/assets`), orderBy('createdAt', 'desc'));
@@ -227,22 +240,13 @@ export default function App() {
 
   const handleAuth = async (isRegister) => {
     try {
-      if (isRegister) {
-        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-      } else {
-        await signInWithEmailAndPassword(auth, authEmail, authPassword);
-      }
-    } catch (err) {
-      alert('Authentication error: ' + err.message);
-    }
+      if (isRegister) await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+      else await signInWithEmailAndPassword(auth, authEmail, authPassword);
+    } catch (err) { alert('Authentication error: ' + err.message); }
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error(err);
-    }
+    try { await signOut(auth); } catch (err) { console.error(err); }
   };
 
   const handleAddAsset = async (e) => {
@@ -260,18 +264,12 @@ export default function App() {
     try {
       await addDoc(collection(db, `users/${user.uid}/assets`), data);
       setIsAddModalOpen(false);
-    } catch (err) {
-      alert('Error adding device: ' + err.message);
-    }
+    } catch (err) { alert('Error adding device: ' + err.message); }
   };
 
   const handleDeleteAsset = async (id) => {
     if (!confirm('Delete this device?')) return;
-    try {
-      await deleteDoc(doc(db, `users/${user.uid}/assets`, id));
-    } catch (err) {
-      alert('Error: ' + err.message);
-    }
+    try { await deleteDoc(doc(db, `users/${user.uid}/assets`, id)); } catch (err) { alert('Error: ' + err.message); }
   };
 
   const handleUpgrade = async (planId) => {
@@ -285,9 +283,9 @@ export default function App() {
     const assetId = scannedText.split('/').pop();
     const found = assets.find(a => a.id === assetId);
     if (found) {
-      alert(`Device Found: ${found.name}`);
+      alert(`DEVICE FOUND:\nName: ${found.name}\nSerial: ${found.serial}`);
     } else {
-      alert('Device not found in your inventory');
+      alert('Device not found in inventory.');
     }
   };
 
@@ -304,69 +302,53 @@ export default function App() {
     return 'ok';
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Stethoscope className="animate-pulse text-cyan-600 mx-auto mb-2" size={48} />
-          <p className="font-semibold text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="h-screen flex items-center justify-center"><Stethoscope className="animate-pulse text-cyan-600" size={48} /></div>;
 
-  // Landing Page
   if (view === 'landing' && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-cyan-50 to-white">
         <nav className="p-4 flex justify-between items-center max-w-6xl mx-auto">
-          <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl">
-            <Stethoscope /> MediLog
-          </div>
+          <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl"><Stethoscope /> MediLog</div>
           <Button variant="outline" onClick={() => setView('auth')}>Sign In</Button>
         </nav>
         <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-          <h1 className="text-5xl font-black mb-4">Never Forget Equipment Maintenance Again</h1>
-          <p className="text-xl text-slate-600 mb-8">Track your clinic devices with QR codes. Get reminders. Stay compliant.</p>
+          <h1 className="text-5xl font-black mb-4">Never Forget Equipment Maintenance</h1>
+          <p className="text-xl text-slate-600 mb-8">Track your clinic devices with QR codes.</p>
           <div className="flex gap-4 justify-center">
             <Button onClick={() => setView('auth')} className="px-8 py-4 text-lg">Start Free Trial</Button>
-            <Button variant="outline" onClick={() => setView('pricing')} className="px-8 py-4 text-lg">View Pricing</Button>
+            <Button variant="outline" onClick={() => setView('pricing')} className="px-8 py-4 text-lg">Pricing</Button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Pricing Page
   if (view === 'pricing' && !user) {
     return (
       <div className="min-h-screen bg-slate-50 py-12 px-6">
         <div className="max-w-5xl mx-auto">
-          <button onClick={() => setView('landing')} className="mb-6 text-slate-600 hover:text-cyan-600">← Back</button>
-          <h2 className="text-3xl font-bold text-center mb-12">Simple, Transparent Pricing</h2>
+          <button onClick={() => setView('landing')} className="mb-6 text-slate-600">← Back</button>
           <BillingView currentPlan={null} onUpgrade={() => setView('auth')} deviceCount={0} />
-          <p className="text-center mt-8 text-sm text-slate-600">First 5 devices free, then $2.50/device/month</p>
         </div>
       </div>
     );
   }
 
-  // Auth Page
   if (view === 'auth' && !user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
             <Stethoscope className="text-cyan-600 mx-auto mb-2" size={40} />
-            <h2 className="text-2xl font-bold">Sign In to MediLog</h2>
+            <h2 className="text-2xl font-bold">Sign In</h2>
           </div>
           <div className="space-y-4">
-            <Input label="Email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="your@email.com" required />
-            <Input label="Password" type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="••••••••" required />
+            <Input label="Email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+            <Input label="Password" type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
             <Button onClick={() => handleAuth(false)} className="w-full">Sign In</Button>
-            <button onClick={() => handleAuth(true)} className="w-full text-sm text-cyan-600 hover:underline">Create Account</button>
+            <button onClick={() => handleAuth(true)} className="w-full text-sm text-cyan-600">Create Account</button>
           </div>
-          <button onClick={() => setView('landing')} className="w-full mt-4 text-sm text-slate-500">← Back to Home</button>
+          <button onClick={() => setView('landing')} className="w-full mt-4 text-sm text-slate-500">← Back</button>
         </div>
       </div>
     );
@@ -374,84 +356,47 @@ export default function App() {
 
   if (!user) return null;
 
-  // Dashboard
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {isScannerOpen && <QRScanner onScan={handleQRScan} onClose={() => setIsScannerOpen(false)} />}
       
-      {/* Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r p-6 h-screen sticky top-0">
-        <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl mb-8">
-          <Stethoscope /> MediLog
-        </div>
+        <div className="flex items-center gap-2 text-cyan-600 font-bold text-xl mb-8"><Stethoscope /> MediLog</div>
         <div className="mb-6 p-4 bg-slate-50 rounded-lg">
-          <p className="text-xs text-slate-500 uppercase font-bold">Clinic</p>
-          <p className="font-bold truncate">{clinicData?.name || 'Your Clinic'}</p>
-          <p className="text-xs text-cyan-600 font-bold mt-1">{userPlan.toUpperCase()} PLAN</p>
+          <p className="font-bold truncate">{clinicData?.name || 'My Clinic'}</p>
+          <p className="text-xs text-cyan-600 font-bold mt-1 uppercase">{userPlan}</p>
         </div>
         <nav className="space-y-2 flex-1">
-          <Button variant="ghost" onClick={() => setView('dashboard')} className={`w-full justify-start ${view === 'dashboard' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={LayoutDashboard}>
-            Dashboard
-          </Button>
-          <Button variant="ghost" onClick={() => setView('settings')} className={`w-full justify-start ${view === 'settings' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={Settings}>
-            Settings
-          </Button>
-          <Button variant="ghost" onClick={() => setView('billing')} className={`w-full justify-start ${view === 'billing' ? 'bg-cyan-50 text-cyan-600' : ''}`} icon={CreditCard}>
-            Billing
-          </Button>
+          <Button variant="ghost" onClick={() => setView('dashboard')} className="w-full justify-start" icon={LayoutDashboard}>Dashboard</Button>
+          <Button variant="ghost" onClick={() => setView('settings')} className="w-full justify-start" icon={Settings}>Settings</Button>
+          <Button variant="ghost" onClick={() => setView('billing')} className="w-full justify-start" icon={CreditCard}>Billing</Button>
         </nav>
-        <button onClick={handleLogout} className="flex items-center gap-2 text-rose-500 p-3 hover:bg-rose-50 rounded-lg">
-          <LogOut size={16} /> Sign Out
-        </button>
+        <button onClick={handleLogout} className="flex items-center gap-2 text-rose-500 p-3 hover:bg-rose-50 rounded-lg"><LogOut size={16} /> Sign Out</button>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
         {view === 'settings' && <SettingsView user={user} clinicData={clinicData} />}
         {view === 'billing' && <BillingView currentPlan={userPlan} onUpgrade={handleUpgrade} deviceCount={assets.length} />}
-        
         {view === 'dashboard' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-3xl font-bold">Your Devices ({assets.length})</h1>
+              <h1 className="text-3xl font-bold">Devices ({assets.length})</h1>
               <div className="flex gap-3">
                 <Button variant="outline" icon={Camera} onClick={() => setIsScannerOpen(true)}>Scan QR</Button>
-                <Button variant="outline" icon={Printer} onClick={() => window.print()}>Print QR Labels</Button>
+                <Button variant="outline" icon={Printer} onClick={() => window.print()}>Print Labels</Button>
                 <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>Add Device</Button>
               </div>
             </div>
-
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-3 text-slate-400" size={20} />
-                <input 
-                  type="text"
-                  placeholder="Search devices..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg focus:border-cyan-500 outline-none"
-                />
-              </div>
+            
+            <div className="mb-6 relative max-w-md">
+              <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+              <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-lg outline-none focus:border-cyan-500" />
             </div>
 
-            {/* Alerts */}
-            {assets.some(a => getAlertStatus(a.nextService) === 'overdue') && (
-              <Alert variant="danger" className="mb-6">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={20} />
-                  <strong>Maintenance Overdue!</strong> {assets.filter(a => getAlertStatus(a.nextService) === 'overdue').length} device(s) need immediate attention.
-                </div>
-              </Alert>
-            )}
-
-            {/* Assets Grid */}
             {filteredAssets.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-300">
-                <Stethoscope className="mx-auto text-slate-300 mb-4" size={64} />
                 <h3 className="text-xl font-bold text-slate-400 mb-2">No Devices Yet</h3>
-                <p className="text-slate-500 mb-6">Add your first device to get started</p>
-                <Button onClick={() => setIsAddModalOpen(true)}>Add Your First Device</Button>
+                <Button onClick={() => setIsAddModalOpen(true)}>Add Device</Button>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -460,33 +405,16 @@ export default function App() {
                   return (
                     <div key={asset.id} className="bg-white p-6 rounded-xl border-2 border-slate-200 hover:shadow-lg transition-shadow">
                       <div className="flex justify-between mb-4">
-                        <div className="p-2 bg-cyan-50 rounded-lg">
-                          <Stethoscope className="text-cyan-600" size={24} />
-                        </div>
+                        <div className="p-2 bg-cyan-50 rounded-lg"><Stethoscope className="text-cyan-600" size={24} /></div>
                         {status === 'overdue' && <span className="text-xs font-bold bg-rose-100 text-rose-600 px-2 py-1 rounded-full">OVERDUE</span>}
-                        {status === 'warning' && <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-1 rounded-full">DUE SOON</span>}
                         {status === 'ok' && <span className="text-xs font-bold bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">ACTIVE</span>}
                       </div>
                       <h3 className="text-lg font-bold mb-1">{asset.name}</h3>
                       <p className="text-sm text-slate-500 mb-4">{asset.brand} • {asset.serial}</p>
-                      <div className="text-sm space-y-1 mb-4">
-                        <p><strong>Location:</strong> {asset.location}</p>
-                        <p><strong>Next Service:</strong> {asset.nextService || 'Not set'}</p>
-                        {asset.warrantyExpiry && <p><strong>Warranty:</strong> {asset.warrantyExpiry}</p>}
-                      </div>
                       <div className="flex justify-center p-4 bg-slate-50 rounded-lg mb-4">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://medilog.app/asset/${asset.id}`)}`}
-                          alt="QR Code"
-                          className="w-32 h-32"
-                        />
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://medilog.app/asset/${asset.id}`)}`} alt="QR" className="w-32 h-32" />
                       </div>
-                      <button 
-                        onClick={() => handleDeleteAsset(asset.id)}
-                        className="text-rose-500 hover:text-rose-600 text-sm font-semibold flex items-center gap-1"
-                      >
-                        <Trash2 size={14} /> Delete Device
-                      </button>
+                      <button onClick={() => handleDeleteAsset(asset.id)} className="text-rose-500 text-sm font-semibold flex items-center gap-1"><Trash2 size={14} /> Delete</button>
                     </div>
                   );
                 })}
@@ -496,20 +424,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Add Device Modal (DÜZELTME 2: Form Etiketi ve Submit) */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg">
             <h3 className="text-2xl font-bold mb-6">Add New Device</h3>
             <form onSubmit={handleAddAsset} className="space-y-4">
-              <Input label="Device Name" name="deviceName" placeholder="e.g. X-Ray Machine" required />
+              <Input label="Device Name" name="deviceName" required />
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Brand" name="brand" placeholder="e.g. Philips" required />
-                <Input label="Serial Number" name="serial" placeholder="ABC123" required />
+                <Input label="Brand" name="brand" required />
+                <Input label="Serial" name="serial" required />
               </div>
-              <Input label="Location" name="location" placeholder="e.g. Room 101" required />
-              <Input label="Next Service Date" name="nextService" type="date" required />
-              <Input label="Warranty Expiry" name="warranty" type="date" />
+              <Input label="Location" name="location" required />
+              <Input label="Next Service" name="nextService" type="date" required />
+              <Input label="Warranty" name="warranty" type="date" />
               <div className="flex gap-4 mt-6">
                 <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="flex-1">Cancel</Button>
                 <Button type="submit" className="flex-1">Add Device</Button>
@@ -518,7 +445,6 @@ export default function App() {
           </div>
         </div>
       )}
-
       <style>{`@media print { aside, button, input { display: none !important; } }`}</style>
     </div>
   );
