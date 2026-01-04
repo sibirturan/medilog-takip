@@ -1,8 +1,8 @@
 // src/types/index.ts
-export interface MaintenanceHistory {
+
+export interface MaintenanceRecord {
   id: string;
   date: string;
-  type: 'Routine' | 'Repair' | 'Calibration' | 'Cleaning';
   description: string;
   technician?: string;
   cost?: number;
@@ -12,7 +12,6 @@ export interface DeviceDocument {
   id: string;
   name: string;
   url: string;
-  type: 'manual' | 'certificate' | 'invoice' | 'other';
   uploadedAt: string;
   size: number;
 }
@@ -28,11 +27,19 @@ export interface Device {
   createdAt: string;
   updatedAt: string;
   
-  // YENİ ALANLAR
+  // Yeni alanlar
   serviceProvider?: string;
   servicePhone?: string;
   serviceEmail?: string;
   notes?: string;
   documents?: DeviceDocument[];
-  maintenanceHistory?: MaintenanceHistory[];
+  maintenanceHistory?: MaintenanceRecord[];
 }
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  createdAt: string;
+}
+
