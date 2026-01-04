@@ -20,3 +20,7 @@ Thumbs.db
 # IDE
 .vscode
 .idea
+# Firebase
+src/services/firebase.ts
+.env
+.env.local
