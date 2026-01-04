@@ -1,19 +1,23 @@
-// src/services/storageService.ts
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase';
-
+// Firebase yerine kendi sunucumuzu kullan
 export const uploadFile = async (file: File): Promise<{ url: string; name: string; size: number }> => {
-  const timestamp = Date.now();
-  const fileName = `${timestamp}_${file.name}`;
-  const storageRef = ref(storage, `device-documents/${fileName}`);
-  
-  await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(storageRef);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('https://medilogapp.com/api/upload.php', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error('Upload failed');
+  }
+
+  const data = await response.json();
   
   return {
-    url,
-    name: file.name,
-    size: file.size
+    url: data.url,
+    name: data.name,
+    size: data.size
   };
 };
 
